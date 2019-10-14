@@ -5,6 +5,9 @@ def main()
   loop do
     Thread.start(server.accept) do |client|
       client.puts("Connected")
+      while line = client.gets
+        puts(line.chomp)
+      end
       #semaphore.synchronize do
           #client.puts "Hello !"
           #client.puts "Time is #{Time.now}"
