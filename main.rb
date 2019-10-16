@@ -1,4 +1,5 @@
 require 'socket'
+
 def main()
   semaphore = Mutex.new
   server = TCPServer.new 23
@@ -6,7 +7,7 @@ def main()
     Thread.start(server.accept) do |client|
       client.puts("Connected")
       while line = client.gets
-        puts(line.chomp)
+        puts(line.chomp.gsub(/[^[:print:]]/i, ''))
       end
       #semaphore.synchronize do
           #client.puts "Hello !"
