@@ -1,16 +1,25 @@
+require 'date'
+
 class Memcached
-    attr_accessor :values
 
     def initialize
-        values = {}
+        @values = {}
+        @semaphore = Mutex.new
     end
 
-    def add
-
+    def add(key, value)
+        if values[key]
+            @semaphore.synchronize do
+                values[key].last_fetched = DateTime.now
+            end
+            return 'Error'
+        end
+        @semaphore.synchronize do
+            values[key] = values
+        end
     end
 
-    def replace
-
+    def replace(key, value)
     end
 
     def set
@@ -26,6 +35,10 @@ class Memcached
     end
 
     def cas
+
+    end
+
+    def gets
 
     end
 
