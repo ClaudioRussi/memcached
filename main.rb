@@ -44,6 +44,8 @@ class MemcachedServer
     case command
     when "add"
       return @memcached.add(key, data, flag, expiration, cas)
+    when "replace"
+      return @memcached.replace(key, data, flag, expiration, cas)
     else
       print "Command not specified"
     end

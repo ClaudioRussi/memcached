@@ -11,7 +11,7 @@ class Memcached
     def add(key, value, flag, expiration_time, cas=nil)
         if @values.key? key
             @semaphore.synchronize do
-                @values[key].last_fetched = DateTime.now
+                @values[key].last_used = DateTime.now
             end
             return 'Error'
         end
@@ -21,26 +21,34 @@ class Memcached
         print @values
     end
 
-    def replace(key, value)
+    def replace(key, value, flag, expiration_time, cas=nil)
+        unless @values.key? key
+            return 'Error'
+        end
+        @semaphore.synchronize do
+            @values[key] = Value.new(value, Integer(flag), Integer(expiration_time), Integer(cas, exception: false))
+        end
     end
 
-    def set
+    def set(key, value, flag, expiration_time, cas=nil)
+        @semaphore.synchronize do
+            @values[key] = = Value.new(value, Integer(flag), Integer(expiration_time), Integer(cas, exception: false))
+        end
+    end
+
+    def prepend(key, value, flag, expiration_time, cas=nil)
 
     end
 
-    def prepend
+    def append(key, value, flag, expiration_time, cas=nil)
 
     end
 
-    def append
+    def cas(key, value, flag, expiration_time, cas=nil)
 
     end
 
-    def cas
-
-    end
-
-    def gets
+    def gets(key, value, flag, expiration_time, cas=nil)
 
     end
 
