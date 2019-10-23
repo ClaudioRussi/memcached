@@ -1,4 +1,5 @@
 require 'date'
+require_relative './value'
 
 class Memcached
 
@@ -7,16 +8,17 @@ class Memcached
         @semaphore = Mutex.new
     end
 
-    def add(key, value)
-        if values[key]
+    def add(key, value, flag, expiration_time, cas=nil)
+        if @values.key? key
             @semaphore.synchronize do
-                values[key].last_fetched = DateTime.now
+                @values[key].last_fetched = DateTime.now
             end
             return 'Error'
         end
         @semaphore.synchronize do
-            values[key] = values
+            @values[key] = Value.new(value, Integer(flag), Integer(expiration_time), Integer(cas, exception: false))
         end
+        print @values
     end
 
     def replace(key, value)
