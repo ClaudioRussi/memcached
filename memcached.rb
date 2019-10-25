@@ -3,6 +3,8 @@ require_relative './value'
 
 class Memcached
 
+    FIXNUM_MAX = (2**(0.size * 8 -2) -1)
+
   def initialize
     @values = {}
     @semaphore = Mutex.new
@@ -76,14 +78,17 @@ class Memcached
       end
   end
 
-
   def gets(key, value, flag, expiration_time)
-
+    if @values.key? key
+        @values[key].cas = rand(FIXNUM_MAX)
+        return "VALUE #{@values[key].value} #{@values[key].flag} #{@values[key].bytes} #{@values[key].cas}" 
+      end
   end
 
   def get(key)
     if @values.key? key
       return "VALUE #{@values[key].value} #{@values[key].flag} #{@values[key].bytes}" 
+    end
   end
 
 end
