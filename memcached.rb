@@ -91,4 +91,20 @@ class Memcached
     end
   end
 
+  def delete(key)
+
+  end
+
+  def incr(key, value)
+
+  end
+
+  def decr(key, value)
+
+  end
+
+  def flush_all(time)
+
+  end
+
 end

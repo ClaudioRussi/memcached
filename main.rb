@@ -1,7 +1,7 @@
 require 'socket'
 require_relative './memcached'
 
-VALID_COMMANDS = ['add', 'replace', 'set', 'prepend', 'append', 'cas', 'gets']
+VALID_COMMANDS = [:add, :replace, :set, :prepend, :append, :cas, :gets, :delete, :incr, :decr, :flush_all]
 
 class MemcachedServer
 
@@ -41,22 +41,34 @@ class MemcachedServer
 
   def call_command(command_params, data)
     command = command_params[0]
-    case command
-      when "add"
+    case command.to_sym
+      when :add
         return(call_store_command(:add, command_params, data))
-      when "set"
+      when :set
         return(call_store_command(:set, command_params, data))
-      when "replace"
+      when :replace
         return(call_store_command(:replace, command_params, data))
-      when "append"
+      when :append
         return(call_store_command(:append, command_params, data))
-      when "prepend"
+      when :prepend
         return(call_store_command(:prepend, command_params, data))
-      when "cas"
+      when :cas
         return(call_store_command(:cas, command_params, data))
-      when "get"
+      when :get
+        _, key, no_reply = command_params
+        message = @memcached.get(key)
+        return !no_reply && (message || Error)
+      when :gets
+        _, key, no_reply = command_params
+        message = @memcached.gets(key)
+        return !no_reply && (message || Error)
+      when :delete
         return
-      when "gets"
+      when :incr
+        return
+      when :decr
+        return
+      when :flush_all
         return
       else
         print "Command not specified"
@@ -68,7 +80,7 @@ class MemcachedServer
     if(are_valid_store_params(command_params))
       message = @memcached.send(method, key, data, flag, expiration, bytes)
     end
-    return no_reply && (message || "Error")
+    return !no_reply && (message || "Error")
   end
 
   def are_valid_store_params(params)
