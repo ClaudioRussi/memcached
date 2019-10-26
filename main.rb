@@ -14,6 +14,12 @@ class MemcachedServer
   def start()
     server = TCPServer.new @port
     @memcached = Memcached.new
+    Thread.new do
+      while true
+        @memcached.delete_expired
+        sleep(1)
+      end
+    end
     loop do
       Thread.start(server.accept) do |client|
         client.puts "Connected"
@@ -63,11 +69,25 @@ class MemcachedServer
         message = @memcached.gets(key)
         return !no_reply && (message || Error)
       when :delete
-        return
+        _, key, no_reply = command_params
+        message = @memcached.delete(key)
+        return !no_reply && (message || Error)
       when :incr
-        return
+        _, key, value, no_reply = command_params
+        if(is_unsigned_number value)
+          message = @memcached.incr(Integer(value))
+        else
+          message = "CLIENT_ERROR cannot increment or decrement non-numeric value"
+        end
+        return !no_reply && (message || Error)
       when :decr
-        return
+        _, key, value, no_reply = command_params
+        if(is_unsigned_number value)
+          message = @memcached.incr(-1 * Integer(value))
+        else
+          message = "CLIENT_ERROR cannot increment or decrement non-numeric value"
+        end
+        return !no_reply && (message || Error)
       when :flush_all
         return
       else
