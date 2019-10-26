@@ -1,7 +1,8 @@
 require 'socket'
 require_relative './memcached'
 
-VALID_COMMANDS = [:add, :replace, :set, :prepend, :append, :cas, :gets, :delete, :incr, :decr, :flush_all]
+VALID_COMMANDS = [:add, :replace, :set, :prepend, :append, :cas, :get, :gets, :delete, :incr, :decr, :flush_all]
+ONE_LINE_COMMANDS = [:get, :gets, :delete, :flush_all]
 
 class MemcachedServer
 
@@ -26,12 +27,14 @@ class MemcachedServer
         while line = client.gets
           line = line.chomp.gsub(/[^[:print:]]/i, '')
           command = line.split ' '
-          unless is_valid_command()
+          unless is_valid_command(command)
             client.puts "ERROR\r\n"
             next
           end
-          data = client.gets.chomp.gsub(/[^[:print:]]/i, '')
-          call_command(command, data)
+          if needs_next_line(command)
+            data = client.gets.chomp.gsub(/[^[:print:]]/i, '')
+          end
+          client.puts call_command(command, data)
         end
         client.close
       end
@@ -42,10 +45,16 @@ class MemcachedServer
 
   def is_valid_command(command_params)
     command, = command_params
-    return VALID_COMMANDS.include?(command)
+    print(command)
+    return VALID_COMMANDS.include?(command.to_sym)
   end
 
-  def call_command(command_params, data)
+  def needs_next_line(command_params)
+    command, = command_params
+    return !ONE_LINE_COMMANDS.include?(command.to_sym)
+  end
+
+  def call_command(command_params, data=nil)
     command = command_params[0]
     case command.to_sym
       when :add
@@ -59,19 +68,19 @@ class MemcachedServer
       when :prepend
         return(call_store_command(:prepend, command_params, data))
       when :cas
-        return(call_store_command(:cas, command_params, data))
+        return(call_store_command(:cas, command_params, data, true))
       when :get
         _, key, no_reply = command_params
         message = @memcached.get(key)
-        return !no_reply && (message || Error)
+        return !no_reply && (message || "Error")
       when :gets
         _, key, no_reply = command_params
         message = @memcached.gets(key)
-        return !no_reply && (message || Error)
+        return !no_reply && (message || "Error")
       when :delete
         _, key, no_reply = command_params
         message = @memcached.delete(key)
-        return !no_reply && (message || Error)
+        return !no_reply && (message || "Error")
       when :incr
         _, key, value, no_reply = command_params
         if(is_unsigned_number value)
@@ -79,7 +88,7 @@ class MemcachedServer
         else
           message = "CLIENT_ERROR cannot increment or decrement non-numeric value"
         end
-        return !no_reply && (message || Error)
+        return !no_reply && (message || "Error")
       when :decr
         _, key, value, no_reply = command_params
         if(is_unsigned_number value)
@@ -87,7 +96,7 @@ class MemcachedServer
         else
           message = "CLIENT_ERROR cannot increment or decrement non-numeric value"
         end
-        return !no_reply && (message || Error)
+        return !no_reply && (message || "Error")
       when :flush_all
         return
       else
@@ -95,10 +104,15 @@ class MemcachedServer
       end
   end
 
-  def call_store_command(method, command_params, data)
-    command, key, flag, expiration, bytes, no_reply = command_params
+  def call_store_command(method, command_params, data, cas=false)
     if(are_valid_store_params(command_params))
-      message = @memcached.send(method, key, data, flag, expiration, bytes)
+      if cas
+        command, key, flag, expiration, bytes, cas, no_reply = command_params
+        message = @memcached.send(method, key, data, flag, expiration, bytes, cas)
+      else
+        command, key, flag, expiration, bytes, no_reply = command_params
+        message = @memcached.send(method, key, data, flag, expiration, bytes)
+      end
     end
     return !no_reply && (message || "Error")
   end
