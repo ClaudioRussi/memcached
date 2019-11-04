@@ -2,7 +2,7 @@ require 'date'
 class Value
     SECONDS_PER_DAY = 60 * 60 * 24
 
-    attr_accessor :value, :expiration_time, :flag, :cas, :last_used, :bytes
+    attr_accessor :value, :expiration_time, :flag, :cas, :bytes
     attr_reader :stored_at
 
     def initialize(value, flag, expiration_time, bytes, cas=nil)
@@ -13,7 +13,6 @@ class Value
         @bytes = bytes
         @cas = cas
         @stored_at = date
-        @last_used = date
     end
 
     def get_expiration_date

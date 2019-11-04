@@ -1,12 +1,13 @@
 require 'date'
 require_relative './value'
+require_relative './memcached_storage'
 
 class Memcached
     attr_reader :values
     FIXNUM_MAX = (2**(0.size * 8 -2) -1)
 
-  def initialize
-    @values = {}
+  def initialize(max_bytes)
+    @values = MemcachedStorage.new(max_bytes)
     #Mutex to prevent race conditions
     @semaphore = Mutex.new
   end

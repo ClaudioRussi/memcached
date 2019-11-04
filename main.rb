@@ -3,6 +3,7 @@ require_relative './memcached'
 
 VALID_COMMANDS = [:add, :replace, :set, :prepend, :append, :cas, :get, :gets, :delete, :incr, :decr, :flush_all]
 ONE_LINE_COMMANDS = [:get, :gets, :delete, :flush_all]
+MAX_BYTES = 1000
 
 class MemcachedServer
 
@@ -14,7 +15,7 @@ class MemcachedServer
 
   def start()
     server = TCPServer.new @port
-    @memcached = Memcached.new
+    @memcached = Memcached.new(MAX_BYTES)
     Thread.new do
       while true
         @memcached.delete_expired
