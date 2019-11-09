@@ -1,10 +1,11 @@
 require "test/unit/assertions"
 require_relative './memcached'
 require 'minitest/autorun'
+require_relative './config.rb'
 
 class MemcachedTest < Minitest::Test
   def setup
-    @memcached = Memcached.new
+    @memcached = Memcached.new(Config::MAX_BYTES)
     @memcached.add("miKey", "1234", 1, 0, 5)
   end
 

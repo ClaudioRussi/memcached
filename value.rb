@@ -1,6 +1,12 @@
 require 'date'
+require_relative './config'
+#This class represents an entry in memcached.
+#value: string to store
+#expiration_time: seconds to expiration
+#flag: flag value 
+#cas: cas value 
+#bytes: bytes to store
 class Value
-    SECONDS_PER_DAY = 60 * 60 * 24
 
     attr_accessor :value, :expiration_time, :flag, :cas, :bytes
     attr_reader :stored_at
@@ -16,6 +22,6 @@ class Value
     end
 
     def get_expiration_date
-        return @stored_at + Rational(expiration_time, SECONDS_PER_DAY)
+        return @stored_at + Rational(expiration_time, Config::SECONDS_PER_DAY)
     end
 end

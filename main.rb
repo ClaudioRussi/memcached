@@ -1,9 +1,8 @@
 require 'socket'
 require_relative './memcached'
+require_relative './config'
+require_relative './utils'
 
-VALID_COMMANDS = [:add, :replace, :set, :prepend, :append, :cas, :get, :gets, :delete, :incr, :decr, :flush_all]
-ONE_LINE_COMMANDS = [:get, :gets, :delete, :flush_all]
-MAX_BYTES = 1000
 
 class MemcachedServer
 
@@ -15,7 +14,7 @@ class MemcachedServer
 
   def start()
     server = TCPServer.new @port
-    @memcached = Memcached.new(MAX_BYTES)
+    @memcached = Memcached.new(Config::MAX_BYTES)
     Thread.new do
       while true
         @memcached.delete_expired
@@ -26,14 +25,14 @@ class MemcachedServer
       Thread.start(server.accept) do |client|
         client.puts "Connected"
         while line = client.gets
-          line = line.chomp.gsub(/[^[:print:]]/i, '')
+          line = Utils::parse_telnet_input(line)
           command = line.split ' '
-          unless is_valid_command(command)
+          unless @memcached.is_valid_command(command)
             client.puts "ERROR\r\n"
             next
           end
-          if needs_next_line(command)
-            data = client.gets.chomp.gsub(/[^[:print:]]/i, '')
+          if @memcached.needs_next_line(command)
+            data = Utils::parse_telnet_input(client.gets)
           end
           client.puts call_command(command, data)
         end
@@ -43,17 +42,6 @@ class MemcachedServer
   end
 
   protected
-
-  def is_valid_command(command_params)
-    command, = command_params
-    print(command)
-    return VALID_COMMANDS.include?(command.to_sym)
-  end
-
-  def needs_next_line(command_params)
-    command, = command_params
-    return !ONE_LINE_COMMANDS.include?(command.to_sym)
-  end
 
   def call_command(command_params, data=nil)
     command = command_params[0]
@@ -127,4 +115,4 @@ class MemcachedServer
     return parsed_number && parsed_number >= 0
   end
 end
-MemcachedServer.new(23).start()
+MemcachedServer.new(Config::SERVER_PORT).start()
