@@ -14,32 +14,51 @@ class MemcachedStorage
   #Sets a value and key pair in the hash, and stores an entry at the end of the linked list 
   def set(key, value)
     node = Node.new(key, value)
-    if(value.bytes + get_used_bytes() > @max_bytes)
+
+    if value.bytes > @max_bytes
+      return false
+    elsif is_empty?
       @semaphore.synchronize do
-        @hashed_storage.delete(@head_value.key)
-        @head_value = @head_value.previous_node
-        @head_value.next_node = nil
+        @head_node = node
+        @tail_node = node
+        @hashed_storage[key] = node
+        return node
       end
     end
-    node.next_node = @tail_value
-    @tail_value = node
-    @hashed_storage[key] = node
+    while value.bytes + get_used_bytes() > @max_bytes do
+      @semaphore.synchronize do
+        @hashed_storage.delete(@head_node.key)
+        @head_node = @head_node.previous_node
+        if @head_node 
+          @head_node.next_node = nil
+        end
+      end
+    end
+    @semaphore.synchronize do
+      node.next_node = @tail_node
+      @tail_node.previous_node = node
+      @tail_node = node
+      @hashed_storage[key] = node
+    end
+    return value
   end
 
   def is_empty?
     @semaphore.synchronize do 
-      return @head_value == nil && @tail_value == nil
+      return @hashed_storage.empty?
     end
   end
 
   #Returns the amount of bytes stored
   def get_used_bytes
     size = 0
-    @semaphore.synchronize do
-      actual_node = @tail_node
-      while tail_node != @head_node
-        size += actual_node.value.bytes
-        actual_node = actual_node.next_node
+    unless is_empty?
+      @semaphore.synchronize do
+        actual_node = @tail_node
+        while actual_node != nil do
+          size += actual_node.value.bytes
+          actual_node = actual_node.next_node
+        end
       end
     end
     return size
@@ -48,7 +67,7 @@ class MemcachedStorage
   #Returns a key if exists
   def get(key)
     @semaphore.synchronize do
-      return @hashed_storage[key]
+      return @hashed_storage[key] && @hashed_storage[key].value
     end
   end
 
@@ -89,6 +108,12 @@ class MemcachedStorage
     if key? key
       @semaphore.synchronize do
         node = @hashed_storage[key]
+        if node == @head_node
+          @head_node = node.previous_node
+        end
+        if node == @tail_node
+          @tail_node = node.next_node
+        end
         if node.previous_node
           node.previous_node.next_node = node.next_node
         end
@@ -105,6 +130,9 @@ class MemcachedStorage
     if key? key
       @semaphore.synchronize do
         node = @hashed_storage[key]
+        if(@head_node == node)
+          @head_node = node.previous_node
+        end
         if node.previous_node
           node.previous_node.next_node = node.next_node
         end
@@ -112,8 +140,9 @@ class MemcachedStorage
           node.next_node.previous_node = node.previous_node
         end
         node.previous_node = nil
-        node.next_node = @tail_value
-        @tail_value = node
+        node.next_node = @tail_node
+        @tail_node.previous_node = node
+        @tail_node = node
       end
     end
   end

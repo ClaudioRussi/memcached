@@ -2,6 +2,7 @@ require 'date'
 require_relative './value'
 require_relative './memcached_storage'
 require_relative './config'
+require_relative './utils'
 
 class Memcached
     attr_reader :values
@@ -20,7 +21,7 @@ class Memcached
     end
     new_value = Value.new(value, Integer(flag), Integer(expiration_time), Integer(bytes))
     @values.set(key, new_value)
-    return "STORED"
+    return 'STORED'
   end
 
   #Adds an element only if the key exists
@@ -30,34 +31,34 @@ class Memcached
     end
     new_value = Value.new(value, Integer(flag), Integer(expiration_time), Integer(bytes))
     @values.set(key, new_value)
-    return "STORED"
+    return 'STORED'
   end
 
   #Adds an element without checking if the key exists or not
   def set(key, value, flag, expiration_time, bytes)
     new_value = Value.new(value, Integer(flag), Integer(expiration_time), Integer(bytes))
     @values.set(key, new_value)
-    return "STORED"
+    return 'STORED'
   end
 
   #Concatenates a value at the beginning of another value
   def prepend(key, value, flag, expiration_time, bytes)
     unless @values.key? key
-      return "NOT_STORED"
+      return 'NOT_STORED'
     end
     new_value = Value.new(value + @values[key].value, Integer(flag), Integer(expiration_time), Integer(bytes))
     @values.set(key, new_value)
-    return "STORED"
+    return 'STORED'
   end
 
   #Concatenates a value at the end of another value
   def append(key, value, flag, expiration_time, bytes)
     unless @values.key? key
-      return "NOT_STORED"
+      return 'NOT_STORED'
     end
     new_value = Value.new(@values[key].value + value, Integer(flag), Integer(expiration_time), Integer(bytes))
     @values.set(key, new_value)
-    return "STORED"
+    return 'STORED'
   end
 
   #Modifies a value if the cas key matches the cas key stored
@@ -65,16 +66,16 @@ class Memcached
     if @values.key? key
       case @values[key].cas
         when nil
-          return "EXISTS"
+          return 'EXISTS'
         when Integer(cas)
           new_value = Value.new(value, Integer(flag), Integer(expiration_time), Integer(bytes))
           @values.set(key, new_value)
-          return "STORED"
+          return 'STORED'
         else
-          return "EXISTS"
+          return 'EXISTS'
         end
     end
-    return "NOT_FOUND"
+    return 'NOT_FOUND'
   end
 
   #Returns a value given a key and generates a cas key
@@ -92,16 +93,16 @@ class Memcached
       value = @values[key]
       return "VALUE #{value.value} #{value.flag} #{value.bytes}" 
     end
-    return ""
+    return ''
   end
 
   #Deletes a value given a key
   def delete(key)
     if @values.key? key
       @values.delete(key)
-      return "DELETED"
+      return 'DELETED'
     end
-    return "NOT_FOUND"
+    return 'NOT_FOUND'
   end
 
   #Increments a value if it is numeric
@@ -113,9 +114,9 @@ class Memcached
         @values[key].value = new_value
         return new_value.to_s
       end
-      return "CLIENT_ERROR cannot increment or decrement non-numeric value"
+      return 'CLIENT_ERROR cannot increment or decrement non-numeric value'
     end
-    return "NOT_FOUND"
+    return 'NOT_FOUND'
   end
 
   #Removes all expired values
@@ -138,5 +139,72 @@ class Memcached
   def needs_next_line(command_params)
     command, = command_params
     return !Config::ONE_LINE_COMMANDS.include?(command.to_sym)
+  end
+
+  def call_command(command_params, data=nil)
+    command = command_params[0]
+    case command.to_sym
+      when :add
+        return(call_store_command(:add, command_params, data))
+      when :set
+        return(call_store_command(:set, command_params, data))
+      when :replace
+        return(call_store_command(:replace, command_params, data))
+      when :append
+        return(call_store_command(:append, command_params, data))
+      when :prepend
+        return(call_store_command(:prepend, command_params, data))
+      when :cas
+        return(call_store_command(:cas, command_params, data, true))
+      when :get
+        _, key, no_reply = command_params
+        message = @memcached.get(key)
+        return !no_reply && (message || 'Error')
+      when :gets
+        _, key, no_reply = command_params
+        message = @memcached.gets(key)
+        return !no_reply && (message || 'Error')
+      when :delete
+        _, key, no_reply = command_params
+        message = @memcached.delete(key)
+        return !no_reply && (message || 'Error')
+      when :incr
+        _, key, value, no_reply = command_params
+        if(Utils::is_unsigned_number value)
+          message = @memcached.incr(Integer(value))
+        else
+          message = 'CLIENT_ERROR cannot increment or decrement non-numeric value'
+        end
+        return !no_reply && (message || 'Error')
+      when :decr
+        _, key, value, no_reply = command_params
+        if(Utils::is_unsigned_number value)
+          message = @memcached.incr(-1 * Integer(value))
+        else
+          message = 'CLIENT_ERROR cannot increment or decrement non-numeric value'
+        end
+        return !no_reply && (message || 'Error')
+      when :flush_all
+        return
+      else
+        print 'Command not specified'
+      end
+  end
+
+  def call_store_command(method, command_params, data, cas=false)
+    if(are_valid_store_params(command_params))
+      if cas
+        command, key, flag, expiration, bytes, cas, no_reply = command_params
+        message = @memcached.send(method, key, data, flag, expiration, bytes, cas)
+      else
+        command, key, flag, expiration, bytes, no_reply = command_params
+        message = @memcached.send(method, key, data, flag, expiration, bytes)
+      end
+    end
+    return !no_reply && (message || 'Error')
+  end
+
+  def are_valid_store_params(params)
+    return params[2..-2].all? {|param| Utils::is_unsigned_number(param)}
   end
 end
