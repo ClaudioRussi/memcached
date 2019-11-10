@@ -1,5 +1,6 @@
 require 'date'
 require_relative './config'
+require_relative './utils'
 #This class represents an entry in memcached.
 #value: string to store
 #expiration_time: seconds to expiration
@@ -21,7 +22,8 @@ class Value
         @stored_at = date
     end
 
+    #Calculates the expiration date
     def get_expiration_date
-        return @stored_at + Rational(expiration_time, Config::SECONDS_PER_DAY)
+        return @stored_at + Rational(expiration_time, Utils::SECONDS_PER_DAY)
     end
 end

@@ -1,7 +1,7 @@
 require 'test/unit/assertions'
 require_relative './memcached'
 require 'minitest/autorun'
-require_relative './config.rb'
+require_relative './config'
 
 class MemcachedTest < Minitest::Test
   def setup

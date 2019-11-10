@@ -4,8 +4,12 @@ require_relative './memcached_storage'
 require_relative './config'
 require_relative './utils'
 
+#Main class, has all the logic related to memcached commands
 class Memcached
     attr_reader :values
+
+  VALID_COMMANDS = [:add, :replace, :set, :prepend, :append, :cas, :get, :gets, :delete, :incr, :decr, :flush_all]
+  ONE_LINE_COMMANDS = [:get, :gets, :delete, :flush_all]
 
   def initialize(max_bytes)
     @values = MemcachedStorage.new(max_bytes)
@@ -38,6 +42,7 @@ class Memcached
   def set(key, value, flag, expiration_time, bytes)
     new_value = Value.new(value, Integer(flag), Integer(expiration_time), Integer(bytes))
     @values.set(key, new_value)
+    puts @values.hashed_storage
     return 'STORED'
   end
 
@@ -82,13 +87,15 @@ class Memcached
   def gets(key)
     if @values.key? key
       value = @values[key]
-      value.cas = rand(Config::FIXNUM_MAX)
+      value.cas = rand(Utils::FIXNUM_MAX)
       return "VALUE #{value.value} #{value.flag} #{value.bytes} #{value.cas}" 
     end
   end
 
   #Returns a value given a key
   def get(key)
+    puts(@values.hashed_storage)
+    puts(key)
     if @values.key? key
       value = @values[key]
       return "VALUE #{value.value} #{value.flag} #{value.bytes}" 
@@ -132,13 +139,13 @@ class Memcached
   def is_valid_command(command_params)
     command, = command_params
     print(command)
-    return Config::VALID_COMMANDS.include?(command.to_sym)
+    return VALID_COMMANDS.include?(command.to_sym)
   end
 
   #Returns true if the command requires a second line
   def needs_next_line(command_params)
     command, = command_params
-    return !Config::ONE_LINE_COMMANDS.include?(command.to_sym)
+    return !ONE_LINE_COMMANDS.include?(command.to_sym)
   end
 
   def call_command(command_params, data=nil)
@@ -158,20 +165,20 @@ class Memcached
         return(call_store_command(:cas, command_params, data, true))
       when :get
         _, key, no_reply = command_params
-        message = @memcached.get(key)
+        message = get(key)
         return !no_reply && (message || 'Error')
       when :gets
         _, key, no_reply = command_params
-        message = @memcached.gets(key)
+        message = gets(key)
         return !no_reply && (message || 'Error')
       when :delete
         _, key, no_reply = command_params
-        message = @memcached.delete(key)
+        message = delete(key)
         return !no_reply && (message || 'Error')
       when :incr
         _, key, value, no_reply = command_params
         if(Utils::is_unsigned_number value)
-          message = @memcached.incr(Integer(value))
+          message = incr(Integer(value))
         else
           message = 'CLIENT_ERROR cannot increment or decrement non-numeric value'
         end
@@ -179,7 +186,7 @@ class Memcached
       when :decr
         _, key, value, no_reply = command_params
         if(Utils::is_unsigned_number value)
-          message = @memcached.incr(-1 * Integer(value))
+          message = incr(-1 * Integer(value))
         else
           message = 'CLIENT_ERROR cannot increment or decrement non-numeric value'
         end
@@ -195,16 +202,16 @@ class Memcached
     if(are_valid_store_params(command_params))
       if cas
         command, key, flag, expiration, bytes, cas, no_reply = command_params
-        message = @memcached.send(method, key, data, flag, expiration, bytes, cas)
+        message = send(method, key, data, flag, expiration, bytes, cas)
       else
         command, key, flag, expiration, bytes, no_reply = command_params
-        message = @memcached.send(method, key, data, flag, expiration, bytes)
+        message = send(method, key, data, flag, expiration, bytes)
       end
     end
     return !no_reply && (message || 'Error')
   end
 
   def are_valid_store_params(params)
-    return params[2..-2].all? {|param| Utils::is_unsigned_number(param)}
+    return params.size >= 5 && params[2..-2].all? {|param| Utils::is_unsigned_number(param)}
   end
 end

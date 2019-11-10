@@ -1,4 +1,4 @@
-#Represents a node for a linked list
+#Represents a node on a linked list
 class Node
     attr_accessor :key, :value, :next_node, :previous_node
 

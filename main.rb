@@ -3,7 +3,7 @@ require_relative './memcached'
 require_relative './config'
 require_relative './utils'
 
-
+#Class that contains the server
 class MemcachedServer
 
   attr_accessor :port
@@ -32,9 +32,10 @@ class MemcachedServer
             next
           end
           if @memcached.needs_next_line(command)
+            puts("yes")
             data = Utils::parse_telnet_input(client.gets)
           end
-          client.puts @memcached(command, data)
+          client.puts @memcached.call_command(command, data)
         end
         client.close
       end
