@@ -4,11 +4,9 @@ require 'test/unit/assertions'
 require_relative './memcached_server'
 require_relative './config'
 
-puts "test"
 class ServerTest < Minitest::Test
   def setup()
     @server = MemcachedServer.new(Config::SERVER_PORT)
-    puts "server will start"
     @thread = Thread.new do 
       begin
         @server.start
@@ -84,7 +82,6 @@ class ServerTest < Minitest::Test
   def teardown()
     @server.close()
     @thread.kill()
-    
   end
 
 end
