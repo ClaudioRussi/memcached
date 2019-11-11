@@ -16,7 +16,7 @@ class MemcachedStorage
     @semaphore.synchronize do
       node = Node.new(key, value)
 
-      if value.bytes > @max_bytes
+      if value.value.length > @max_bytes
         return false
       elsif is_empty?
         @head_node = node
@@ -24,7 +24,7 @@ class MemcachedStorage
         @hashed_storage[key] = node
         return node
       end
-      while value.bytes + get_used_bytes() > @max_bytes do
+      while value.value.length + get_used_bytes() > @max_bytes do
         @hashed_storage.delete(@head_node.key)
         @head_node = @head_node.previous_node
         if @head_node 
@@ -49,7 +49,7 @@ class MemcachedStorage
     unless is_empty?
       actual_node = @tail_node
       while actual_node != nil do
-        size += actual_node.value.bytes
+        size += actual_node.value.value.length
         actual_node = actual_node.next_node
       end
     end

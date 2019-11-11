@@ -7,7 +7,7 @@ require_relative './value'
 class MemcachedTest < Minitest::Test
     def setup
         @storage = MemcachedStorage.new(30)
-        @first_value = Value.new('Value', 5, 10, 6)
+        @first_value = Value.new('Value', 5, 10, 5)
         @storage.set('my_key', @first_value)
     end
 
@@ -44,10 +44,10 @@ class MemcachedTest < Minitest::Test
 
     def test_set_replace_more_values_if_head_value_isnt_enough
         key = "my_key2"
-        value = Value.new("Value2", 5, 15, 7)
+        value = Value.new("MyValue2", 5, 15, 7)
         @storage.set("my_key3", Value.new("abcd", 5, 15, 4))
-        @storage.set("my_key4", Value.new("abcdefghijk", 5, 15, 10))
-        @storage.set("my_key5", Value.new("abcdefghijk", 5, 15, 10))
+        @storage.set("my_key4", Value.new("abcdefghij", 5, 15, 10))
+        @storage.set("my_key5", Value.new("abcdefghijklmno", 5, 15, 10))
         old_size = @storage.size
         @storage.set(key, value)
         assert_equal old_size - 1, @storage.size
@@ -72,16 +72,17 @@ class MemcachedTest < Minitest::Test
     end
 
     def test_get_used_bytes
-        value = Value.new("Value2", 5, 15, 7)
+        value = Value.new("Value2", 5, 15, 6)
+        puts("Value2".length)
         key = "my_key2"
         size = @storage.get_used_bytes
-        assert_equal(6, size)
+        assert_equal(5, size)
         @storage.set(key, value)
         size = @storage.get_used_bytes
-        assert_equal(13, size)
+        assert_equal(11, size)
         @storage.delete('my_key')
         size = @storage.get_used_bytes
-        assert_equal(7, size)
+        assert_equal(6, size)
     end
 
     def test_is_empty
