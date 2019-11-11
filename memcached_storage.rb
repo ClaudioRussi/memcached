@@ -13,28 +13,24 @@ class MemcachedStorage
   
   #Sets a value and key pair in the hash, and stores an entry at the end of the linked list 
   def set(key, value)
-    node = Node.new(key, value)
+    @semaphore.synchronize do
+      node = Node.new(key, value)
 
-    if value.bytes > @max_bytes
-      return false
-    elsif is_empty?
-      @semaphore.synchronize do
+      if value.bytes > @max_bytes
+        return false
+      elsif is_empty?
         @head_node = node
         @tail_node = node
         @hashed_storage[key] = node
         return node
       end
-    end
-    while value.bytes + get_used_bytes() > @max_bytes do
-      @semaphore.synchronize do
+      while value.bytes + get_used_bytes() > @max_bytes do
         @hashed_storage.delete(@head_node.key)
         @head_node = @head_node.previous_node
         if @head_node 
           @head_node.next_node = nil
         end
       end
-    end
-    @semaphore.synchronize do
       node.next_node = @tail_node
       @tail_node.previous_node = node
       @tail_node = node
@@ -44,21 +40,17 @@ class MemcachedStorage
   end
 
   def is_empty?
-    @semaphore.synchronize do 
-      return @hashed_storage.empty?
-    end
+    return @hashed_storage.empty?
   end
 
   #Returns the amount of bytes stored
   def get_used_bytes
     size = 0
     unless is_empty?
-      @semaphore.synchronize do
-        actual_node = @tail_node
-        while actual_node != nil do
-          size += actual_node.value.bytes
-          actual_node = actual_node.next_node
-        end
+      actual_node = @tail_node
+      while actual_node != nil do
+        size += actual_node.value.bytes
+        actual_node = actual_node.next_node
       end
     end
     return size

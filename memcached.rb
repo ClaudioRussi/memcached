@@ -42,7 +42,6 @@ class Memcached
   def set(key, value, flag, expiration_time, bytes)
     new_value = Value.new(value, Integer(flag), Integer(expiration_time), Integer(bytes))
     @values.set(key, new_value)
-    puts @values.hashed_storage
     return 'STORED'
   end
 
@@ -94,13 +93,11 @@ class Memcached
 
   #Returns a value given a key
   def get(key)
-    puts(@values.hashed_storage)
-    puts(key)
     if @values.key? key
       value = @values[key]
       return "VALUE #{value.value} #{value.flag} #{value.bytes}" 
     end
-    return ''
+    return key ? '' : 'Error' 
   end
 
   #Deletes a value given a key
@@ -138,7 +135,6 @@ class Memcached
   #Returns true if the command is valid, false otherwise
   def is_valid_command(command_params)
     command, = command_params
-    print(command)
     return VALID_COMMANDS.include?(command.to_sym)
   end
 
