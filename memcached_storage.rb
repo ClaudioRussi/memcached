@@ -18,6 +18,7 @@ class MemcachedStorage
     @semaphore.synchronize do
       node = Node.new(key, value)
       return false if value.value.length > @max_bytes
+
       if empty?
         @head_node = node
         @tail_node = node
@@ -66,32 +67,26 @@ class MemcachedStorage
     @semaphore.synchronize do
       return @hashed_storage.key? key
     end
-    false
   end
 
-  # Method to get a value given a key
-  def [](key)
+  def delete_expired
+    expired_keys = []
     @semaphore.synchronize do
-      return @hashed_storage[key]&.value
+      @hashed_storage.each do |k, v|
+        expired = v.value.expiration_date < DateTime.now &&
+                  v.value.expiration_time.to_i.positive?
+        expired_keys << k if expired
+      end
     end
-  end
-
-  # Method to store a value given a key
-  def []=(key, value)
-    set(key, value)
+    expired_keys.each do |key|
+      delete(key)
+    end
   end
 
   # Retuns how many values are stored
   def size
     @semaphore.synchronize do
       return @hashed_storage.size
-    end
-  end
-
-  # Iterates over all key, value pair
-  def each(&block)
-    @semaphore.synchronize do
-      @hashed_storage.each(&block)
     end
   end
 

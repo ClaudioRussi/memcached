@@ -36,7 +36,7 @@ class MemcachedTest < Minitest::Test
     value = 'my value 2'
     message = @memcached.replace(key, value, 1, 0, 8)
     assert_equal 'STORED', message
-    assert_equal value, @memcached.values[key].value
+    assert_equal value, @memcached.values.get(key).value
   end
 
   def test_set_stores_the_value_when_key_exists
@@ -44,7 +44,7 @@ class MemcachedTest < Minitest::Test
     value = 'my value 3'
     message = @memcached.set(key, value, 1, 0, 8)
     assert_equal 'STORED', message
-    assert_equal value, @memcached.values[key].value
+    assert_equal value, @memcached.values.get(key).value
   end
 
   def test_set_stores_the_value_when_key_doesnt_exists
@@ -52,7 +52,7 @@ class MemcachedTest < Minitest::Test
     value = 'my value 4'
     message = @memcached.set(key, value, 1, 0, 8)
     assert_equal 'STORED', message
-    assert_equal value, @memcached.values[key].value
+    assert_equal value, @memcached.values.get(key).value
   end
 
   def test_prepend_doesnt_work_when_key_doesnt_exists
@@ -65,10 +65,10 @@ class MemcachedTest < Minitest::Test
   def test_prepend_works_when_key_exists
     key = 'miKey'
     value = 'my value 5'
-    old_value = @memcached.values[key].value
+    old_value = @memcached.values.get(key).value
     message = @memcached.prepend(key, value, 1, 0, 8)
     assert_equal 'STORED', message
-    assert_equal value + old_value, @memcached.values[key].value
+    assert_equal value + old_value, @memcached.values.get(key).value
   end
 
   def test_append_doesnt_work_when_key_doesnt_exists
@@ -81,15 +81,15 @@ class MemcachedTest < Minitest::Test
   def test_append_works_when_key_exists
     key = 'miKey'
     value = 'my value 5'
-    old_value = @memcached.values[key].value
+    old_value = @memcached.values.get(key).value
     message = @memcached.append(key, value, 1, 0, 8)
     assert_equal 'STORED', message
-    assert_equal old_value + value, @memcached.values[key].value
+    assert_equal old_value + value, @memcached.values.get(key).value
   end
 
   def test_gets_returns_new_cas_value
     key = 'miKey'
-    val = @memcached.values[key]
+    val = @memcached.values.get(key)
     expected_message = "VALUE #{val.value} #{val.flag} #{val.bytes} #{val.cas}"
     cas = val.cas
     message = @memcached.gets(key)
@@ -101,22 +101,22 @@ class MemcachedTest < Minitest::Test
     key = 'miKey'
     value = 'my value 6'
     @memcached.gets(key)
-    stored_val = @memcached.values[key]
+    stored_val = @memcached.values.get(key)
     cas = stored_val.cas
     @message = @memcached.cas(key, value, 1, 0, 8, cas)
     assert_equal 'STORED', @message
-    assert_equal value, @memcached.values[key].value
+    assert_equal value, @memcached.values.get(key).value
   end
 
   def test_cas_doesnt_swap_when_cas_numbers_dont_match
     key = 'miKey'
     @memcached.gets(key)
-    stored_val = @memcached.values[key]
+    stored_val = @memcached.values.get(key)
     old_value = stored_val.value
     cas = stored_val.cas + 5
     @message = @memcached.cas(key, 'my value 6', 1, 0, 8, cas)
     assert_equal 'EXISTS', @message
-    assert_equal old_value, @memcached.values[key].value
+    assert_equal old_value, @memcached.values.get(key).value
   end
 
   def test_cas_doesnt_swap_when_key_doesnt_match
@@ -149,11 +149,11 @@ class MemcachedTest < Minitest::Test
   def test_incr_increments_when_value_is_numeric
     key = 'miKey'
     increment = 5
-    old_value = @memcached.values[key].value
+    old_value = @memcached.values.get(key).value
     @message = @memcached.incr(key, increment)
-    expected_value = (Integer(old_value) + increment).to_s
+    expected_value = (old_value.to_i + increment).to_s
     assert_equal expected_value, @message
-    assert_equal expected_value, @memcached.values[key].value
+    assert_equal expected_value, @memcached.values.get(key).value
   end
 
   def test_incr_doesnt_increments_when_value_is_not_numeric
@@ -164,7 +164,7 @@ class MemcachedTest < Minitest::Test
     increment = 5
     @message = @memcached.incr(key, increment)
     assert_equal expected_message, @message
-    assert_equal old_value, @memcached.values[key].value
+    assert_equal old_value, @memcached.values.get(key).value
   end
 
   def test_incr_doesnt_increments_when_key_doesnt_exists

@@ -49,7 +49,7 @@ class Memcached
   def prepend(key, value, flag, expiration_time, bytes)
     return Output::NOT_STORED unless @values.key? key
 
-    new_value = Value.new(value + @values[key].value, flag, expiration_time, bytes)
+    new_value = Value.new(value + @values.get(key).value, flag, expiration_time, bytes)
     @values.set(key, new_value)
     Output::STORED
   end
@@ -58,7 +58,7 @@ class Memcached
   def append(key, value, flag, expiration_time, bytes)
     return Output::NOT_STORED unless @values.key? key
 
-    new_value = Value.new(@values[key].value + value, flag, expiration_time, bytes)
+    new_value = Value.new(@values.get(key).value + value, flag, expiration_time, bytes)
     @values.set(key, new_value)
     Output::STORED
   end
@@ -66,10 +66,10 @@ class Memcached
   # Modifies a value if the cas key matches the cas key stored
   def cas(key, value, flag, expiration_time, bytes, cas)
     if @values.key? key
-      case @values[key].cas
+      case @values.get(key).cas
       when nil
         return Output::EXISTS
-      when Integer(cas)
+      when cas
         new_value = Value.new(value, flag, expiration_time, bytes)
         @values.set(key, new_value)
         return Output::STORED
@@ -84,7 +84,7 @@ class Memcached
   def gets(key)
     return unless @values.key? key
 
-    value = @values[key]
+    value = @values.get(key)
     value.cas = rand(Utils::FIXNUM_MAX)
     Output.value(value)
   end
@@ -92,7 +92,7 @@ class Memcached
   # Returns a value given a key
   def get(key)
     if @values.key? key
-      value = @values[key]
+      value = @values.get(key)
       return Output.value(value)
     end
     key ? '' : Output::ERROR
@@ -110,10 +110,10 @@ class Memcached
   # Increments a value if it is numeric
   def incr(key, increment)
     if @values.key? key
-      old_value = Integer(@values[key].value, exception: false)
+      old_value = Integer(@values.get(key).value, exception: false)
       if old_value
         new_value = (old_value + increment).to_s
-        @values[key].value = new_value
+        @values.get(key).value = new_value
         return new_value.to_s
       end
       return  Output::INCREMENT_ERROR
@@ -123,11 +123,7 @@ class Memcached
 
   # Removes all expired values
   def delete_expired
-    @values.each do |k, v|
-      expired = v.value.expiration_date < DateTime.now &&
-                v.value.expiration_time.to_i.positive?
-      @values.delete(k) if expired
-    end
+    @values.delete_expired
   end
 
   # Returns true if the command is valid, false otherwise
@@ -196,12 +192,12 @@ class Memcached
     when :incr
       _, _, value, no_reply = command_params
       unsigned = Utils.unsigned_number? value
-      message = unsigned ? incr(Integer(value)) : Output.INCREMENT_ERROR
+      message = unsigned ? incr(value.to_i) : Output.INCREMENT_ERROR
       return !no_reply && (message || Output.ERROR)
     when :decr
       _, _, value, no_reply = command_params
       unsigned = Utils.unsigned_number? value
-      message = unsigned ? incr(-1 * Integer(value)) : Output.INCREMENT_ERROR
+      message = unsigned ? incr(-1 * value.to_i) : Output.INCREMENT_ERROR
       return !no_reply && (message || Output.ERROR)
     when :flush_all
       return
