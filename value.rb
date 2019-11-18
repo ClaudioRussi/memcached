@@ -1,6 +1,6 @@
 require 'date'
 require_relative './config'
-require_relative './utils'
+require_relative './helpers/utils'
 
 # This class represents an entry in memcached.
 # value: string to store

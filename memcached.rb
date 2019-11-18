@@ -2,8 +2,8 @@ require 'date'
 require_relative './value'
 require_relative './memcached_storage'
 require_relative './config'
-require_relative './utils'
-require_relative './output_messages'
+require_relative './helpers/utils'
+require_relative './helpers/output_messages'
 
 # Main class, has all the logic related to memcached commands
 class Memcached
@@ -124,9 +124,9 @@ class Memcached
   # Removes all expired values
   def delete_expired
     @values.each do |k, v|
-      if v.value.expiration_date < DateTime.now && v.value.expiration_time.positive?
-        @values.delete(k)
-      end
+      expired = v.value.expiration_date < DateTime.now &&
+                v.value.expiration_time.to_i.positive?
+      @values.delete(k) if expired
     end
   end
 

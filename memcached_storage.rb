@@ -24,7 +24,7 @@ class MemcachedStorage
         @hashed_storage[key] = node
         return node
       end
-      while value.value.length + used_bytes() > @max_bytes do
+      while value.value.length + used_bytes > @max_bytes
         @hashed_storage.delete(@head_node.key)
         @head_node = @head_node.previous_node
         @head_node.next_node = nil if @head_node 
