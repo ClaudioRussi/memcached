@@ -1,7 +1,8 @@
 require_relative './memcached'
 require_relative './node'
 
-#Uses a hash in order to get O(1) in searchs with the key, and a linked list in order to use lru when it has no space left
+# Uses a hash in order to get O(1) in searchs with the key,
+# and a linked list in order to use lru when it has no space left
 class MemcachedStorage 
   attr_reader :head_node, :tail_node, :hashed_storage, :max_bytes
 
@@ -10,132 +11,117 @@ class MemcachedStorage
     @max_bytes = max_bytes
     @hashed_storage = {}
   end
-  
-  #Sets a value and key pair in the hash, and stores an entry at the end of the linked list 
+
+  # Sets a value and key pair in the hash,
+  # and stores an entry at the end of the linked list
   def set(key, value)
     @semaphore.synchronize do
       node = Node.new(key, value)
-
-      if value.value.length > @max_bytes
-        return false
-      elsif is_empty?
+      return false if value.value.length > @max_bytes
+      if empty?
         @head_node = node
         @tail_node = node
         @hashed_storage[key] = node
         return node
       end
-      while value.value.length + get_used_bytes() > @max_bytes do
+      while value.value.length + used_bytes() > @max_bytes do
         @hashed_storage.delete(@head_node.key)
         @head_node = @head_node.previous_node
-        if @head_node 
-          @head_node.next_node = nil
-        end
+        @head_node.next_node = nil if @head_node 
       end
       node.next_node = @tail_node
       @tail_node.previous_node = node
       @tail_node = node
       @hashed_storage[key] = node
     end
-    return value
+    value
   end
 
-  def is_empty?
-    return @hashed_storage.empty?
+  def empty?
+    @hashed_storage.empty?
   end
 
-  #Returns the amount of bytes stored
-  def get_used_bytes
+  # Returns the amount of bytes stored
+  def used_bytes
     size = 0
-    unless is_empty?
+    unless empty?
       actual_node = @tail_node
       while actual_node != nil do
         size += actual_node.value.value.length
         actual_node = actual_node.next_node
       end
     end
-    return size
+    size
   end
 
-  #Returns a key if exists
+  # Returns a key if exists
   def get(key)
     @semaphore.synchronize do
-      return @hashed_storage[key] && @hashed_storage[key].value
+      return @hashed_storage[key]&.value
     end
   end
 
-  #Returns wheter a key is stored or not
+  # Returns wheter a key is stored or not
   def key?(key)
     @semaphore.synchronize do
       return @hashed_storage.key? key
     end
-    return false
+    false
   end
 
-  #Method to get a value given a key
+  # Method to get a value given a key
   def [](key)
     @semaphore.synchronize do
-      return @hashed_storage[key] && @hashed_storage[key].value
+      return @hashed_storage[key]&.value
     end
   end
 
-  #Method to store a value given a key
+  # Method to store a value given a key
   def []=(key, value)
     set(key, value)
   end
 
-  #Retuns how many values are stored
+  # Retuns how many values are stored
   def size
     @semaphore.synchronize do
       return @hashed_storage.size
     end
   end
 
-  #Iterates over all key, value pair
+  # Iterates over all key, value pair
   def each(&block)
-    @hashed_storage.each(&block)
-  end
-
-  #Removes a key, value pair if exists
-  def delete(key)
-    if key? key
-      @semaphore.synchronize do
-        node = @hashed_storage[key]
-        if node == @head_node
-          @head_node = node.previous_node
-        end
-        if node == @tail_node
-          @tail_node = node.next_node
-        end
-        if node.previous_node
-          node.previous_node.next_node = node.next_node
-        end
-        if node.next_node
-          node.next_node.previous_node = node.previous_node
-        end
-        @hashed_storage.delete(key)
-      end
+    @semaphore.synchronize do
+      @hashed_storage.each(&block)
     end
   end
 
-  #Moves the value to the end of the linked list
+  # Removes a key, value pair if exists
+  def delete(key)
+    return unless key? key
+
+    @semaphore.synchronize do
+      node = @hashed_storage[key]
+      @head_node = node.previous_node if node == @head_node
+      @tail_node = node.next_node if node == @tail_node
+      node.previous_node.next_node = node.next_node if node.previous_node
+      node.next_node.previous_node = node.previous_node if node.next_node
+      @hashed_storage.delete(key)
+    end
+  end
+
+  # Moves the value to the end of the linked list
   def move_to_end(key)
-    if key? key
-      @semaphore.synchronize do
-        node = @hashed_storage[key]
-        if(@head_node == node)
-          @head_node = node.previous_node
-        end
-        if node.previous_node
-          node.previous_node.next_node = node.next_node
-        end
-        if node.next_node
-          node.next_node.previous_node = node.previous_node
-        end
-        node.previous_node = nil
-        node.next_node = @tail_node
-        @tail_node.previous_node = node
-        @tail_node = node
-      end
+    return unless key? key
+
+    @semaphore.synchronize do
+      node = @hashed_storage[key]
+      @head_node = node.previous_node if @head_node == node
+      node.previous_node.next_node = node.next_node if node.previous_node
+      node.next_node.previous_node = node.previous_node if node.next_node
+      node.previous_node = nil
+      node.next_node = @tail_node
+      @tail_node.previous_node = node
+      @tail_node = node
     end
   end
 end

@@ -1,8 +1,9 @@
 require 'test/unit/assertions'
-require_relative './memcached'
 require 'minitest/autorun'
-require_relative './config'
+require_relative '../memcached'
+require_relative '../config'
 
+# Tests for memcached class
 class MemcachedTest < Minitest::Test
   def setup
     @memcached = Memcached.new(Config::MAX_BYTES)
@@ -41,7 +42,6 @@ class MemcachedTest < Minitest::Test
   def test_set_stores_the_value_when_key_exists
     key = 'miKey'
     value = 'my value 3'
-    values_size = @memcached.values.size
     message = @memcached.set(key, value, 1, 0, 8)
     assert_equal 'STORED', message
     assert_equal value, @memcached.values[key].value
@@ -50,7 +50,6 @@ class MemcachedTest < Minitest::Test
   def test_set_stores_the_value_when_key_doesnt_exists
     key = 'miKey4'
     value = 'my value 4'
-    values_size = @memcached.values.size
     message = @memcached.set(key, value, 1, 0, 8)
     assert_equal 'STORED', message
     assert_equal value, @memcached.values[key].value
@@ -69,7 +68,7 @@ class MemcachedTest < Minitest::Test
     old_value = @memcached.values[key].value
     message = @memcached.prepend(key, value, 1, 0, 8)
     assert_equal 'STORED', message
-    assert_equal value+old_value, @memcached.values[key].value
+    assert_equal value + old_value, @memcached.values[key].value
   end
 
   def test_append_doesnt_work_when_key_doesnt_exists
@@ -120,7 +119,7 @@ class MemcachedTest < Minitest::Test
     assert_equal old_value, @memcached.values[key].value
   end
 
-  def test_cas_doesnt_swap_when_key_doesnt_exists_match
+  def test_cas_doesnt_swap_when_key_doesnt_match
     key = 'miKey6'
     @memcached.gets(key)
     cas = 10
@@ -170,7 +169,6 @@ class MemcachedTest < Minitest::Test
 
   def test_incr_doesnt_increments_when_key_doesnt_exists
     key = 'miKey8'
-    old_value = 'my value 8'
     increment = 5
     @message = @memcached.incr(key, increment)
     assert_equal 'NOT_FOUND', @message
@@ -195,17 +193,6 @@ class MemcachedTest < Minitest::Test
     sleep(1)
     @memcached.delete_expired
     assert_equal old_size, @memcached.values.size
-  end
-
-  def test_delete_expired_doesnt_remove_when_key_isnt_expired
-    key = 'miKey9'
-    old_value = 'my value 9'
-    @memcached.add(key, old_value, 1, 3, 8)
-    old_size = @memcached.values.size
-    sleep(1)
-    @memcached.delete_expired
-    assert_equal old_size, @memcached.values.size
-    assert @memcached.values.key? key
   end
 
   def test_delete_expired_doesnt_remove_when_expiration_time_is_0
